@@ -1,3 +1,6 @@
+// =====================================================
+// FIREBASE CONFIG (Tetap sesuai milikmu)
+// =====================================================
 const firebaseConfig = {
   apiKey: "AIzaSyAUswvBeyWLt7jYQ11MGfS-KcopD2FqkHg",
   authDomain: "absensi-4384e.firebaseapp.com",
@@ -12,79 +15,230 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// =====================================================
+// STATE & CONFIG
+// =====================================================
 let allData = [];
+let feedList = [];
 let filterStatus = 'semua';
-let filterDate = new Date().toISOString().split('T')[0];
+let filterDate = new Date().toISOString().slice(0, 10);
 let searchQ = '';
+let lastKeys = new Set();
 
-// Jam Realtime
-setInterval(() => {
-    document.getElementById('clockText').innerText = new Date().toLocaleTimeString('id-ID');
-}, 1000);
+// =====================================================
+// HELPERS (Penting untuk parsing data dari alat)
+// =====================================================
+const pad = (n) => String(n).padStart(2, '0');
 
-// Set Tanggal Hari Ini di Input
-document.getElementById('filterDate').value = filterDate;
+function nowStr() {
+  const d = new Date();
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 
-// Ambil Data
-db.ref('/absensi').on('value', snap => {
-    document.getElementById('fbDot').classList.add('on');
-    document.getElementById('fbStatus').innerText = "Online";
-    
-    allData = [];
-    const data = snap.val();
-    if(data) {
-        Object.entries(data).forEach(([key, val]) => {
-            allData.push({ key, ...val });
-        });
-        allData.sort((a, b) => b.waktu.localeCompare(a.waktu));
+function parseWaktu(w) {
+  if (!w || typeof w !== 'string') return null;
+  const parts = w.split(' ');
+  if (parts.length < 2) return null;
+  const [d, m, y] = parts[0].split('/');
+  return new Date(`${y}-${m}-${d}T${parts[1]}`);
+}
+
+function getDateStr(w) {
+  const dt = parseWaktu(w);
+  return dt ? `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}` : '';
+}
+
+function getStatus(w) {
+  const dt = parseWaktu(w);
+  if (!dt) return 'hadir';
+  const h = dt.getHours(), m = dt.getMinutes();
+  return (h > 7 || (h === 7 && m >= 15)) ? 'terlambat' : 'hadir';
+}
+
+function initials(nama) {
+  return nama ? nama.trim().split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : '?';
+}
+
+// =====================================================
+// REALTIME LISTENERS
+// =====================================================
+const ref = db.ref('/absensi');
+
+ref.on('value', snap => {
+  const raw = snap.val() || {};
+  allData = [];
+
+  Object.entries(raw).forEach(([key, val]) => {
+    // Deteksi record baru untuk Feed
+    if (!lastKeys.has(key)) {
+      lastKeys.add(key);
+      if (allData.length > 0 || feedList.length > 0) addToFeed(val, key);
     }
-    renderTable();
+
+    allData.push({
+      key,
+      id: val.id || '—',
+      nama: val.nama || 'Tidak Dikenal',
+      kelas: val.kelas || '—',
+      waktu: val.waktu || '—',
+      akurasi: val.akurasi !== undefined ? val.akurasi : null,
+      status: val.status || getStatus(val.waktu),
+    });
+  });
+
+  // Urutkan waktu terbaru di atas
+  allData.sort((a, b) => (parseWaktu(b.waktu) || 0) - (parseWaktu(a.waktu) || 0));
+
+  // Inisialisasi feed jika kosong
+  if (feedList.length === 0 && allData.length > 0) {
+    feedList = allData.filter(d => getDateStr(d.waktu) === filterDate).slice(0, 15);
+    renderFeed();
+  }
+
+  renderAll();
 });
 
+// Koneksi Status
+db.ref('.info/connected').on('value', snap => {
+  const on = snap.val();
+  const dot = document.getElementById('fbDot');
+  const txt = document.getElementById('fbStatus');
+  if (dot) dot.className = 'fb-dot ' + (on ? 'on' : 'off');
+  if (txt) txt.textContent = on ? 'Terhubung' : 'Offline';
+});
+
+// =====================================================
+// UI RENDERING
+// =====================================================
+function renderAll() {
+  renderTable();
+  updateStats();
+}
+
 function renderTable() {
-    const tbody = document.getElementById('tableBody');
-    let filtered = allData.filter(d => d.waktu.includes(filterDate));
+  const tbody = document.getElementById('tableBody');
+  if (!tbody) return;
 
-    if (filterStatus !== 'semua') filtered = filtered.filter(d => d.status === filterStatus);
-    if (searchQ) filtered = filtered.filter(d => d.nama.toLowerCase().includes(searchQ.toLowerCase()));
+  let data = allData.filter(d => getDateStr(d.waktu) === filterDate);
+  if (filterStatus !== 'semua') data = data.filter(d => d.status === filterStatus);
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    data = data.filter(d => d.nama.toLowerCase().includes(q) || d.kelas.toLowerCase().includes(q));
+  }
 
-    if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Data tidak ditemukan</td></tr>';
-        return;
-    }
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty">Tidak ada data masuk</div></td></tr>`;
+    return;
+  }
 
-    tbody.innerHTML = filtered.map((d, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td><strong>${d.nama}</strong><br><small>${d.kelas || '-'}</small></td>
-            <td>${d.id || '-'}</td>
-            <td>${d.waktu.split(' ')[1] || d.waktu}</td>
-            <td>${d.akurasi ? d.akurasi + '%' : '-'}</td>
-            <td><span class="chip active">${d.status}</span></td>
-            <td><button class="btn" onclick="ubahStatus('${d.key}')">Edit</button></td>
-        </tr>
-    `).join('');
-    
-    updateStats(filtered);
+  tbody.innerHTML = data.map((d, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>
+        <div style="display:flex; align-items:center; gap:10px">
+          <div style="width:32px; height:32px; background:#e2e8f0; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700">
+            ${initials(d.nama)}
+          </div>
+          <div>
+            <div style="font-weight:600">${d.nama}</div>
+            <div style="font-size:11px; color:#64748b">${d.kelas}</div>
+          </div>
+        </div>
+      </td>
+      <td style="font-family:monospace">${d.id}</td>
+      <td style="font-size:12px">${d.waktu}</td>
+      <td>${d.akurasi ? d.akurasi + '%' : '—'}</td>
+      <td><span class="chip active" style="background:${getStatusColor(d.status)}">${d.status}</span></td>
+      <td>
+        <select class="btn" style="padding:4px" onchange="ubahStatus('${d.key}', this.value)">
+          <option value="hadir" ${d.status==='hadir'?'selected':''}>Hadir</option>
+          <option value="terlambat" ${d.status==='terlambat'?'selected':''}>Terlambat</option>
+          <option value="izin" ${d.status==='izin'?'selected':''}>Izin</option>
+          <option value="alpha" ${d.status==='alpha'?'selected':''}>Alpha</option>
+        </select>
+      </td>
+    </tr>
+  `).join('');
 }
 
-function updateStats(data) {
-    document.getElementById('sTotal').innerText = data.length;
-    document.getElementById('sHadir').innerText = data.filter(d => d.status === 'hadir').length;
-    document.getElementById('sTelat').innerText = data.filter(d => d.status === 'terlambat').length;
-    document.getElementById('sAlpha').innerText = data.filter(d => d.status === 'alpha').length;
+function updateStats() {
+  const today = allData.filter(d => getDateStr(d.waktu) === filterDate);
+  const hadir = today.filter(d => d.status === 'hadir').length;
+  const telat = today.filter(d => d.status === 'terlambat').length;
+  const alpha = today.filter(d => d.status === 'alpha').length;
+  
+  document.getElementById('sTotal').textContent = today.length;
+  document.getElementById('sHadir').textContent = hadir + telat;
+  document.getElementById('sTelat').textContent = telat;
+  document.getElementById('sAlpha').textContent = alpha;
 }
 
-// Fungsi Filter & UI
-function applyFilter() { searchQ = document.getElementById('searchBox').value; renderTable(); }
-function applyDateFilter() { filterDate = document.getElementById('filterDate').value; renderTable(); }
-function setStatus(status, el) {
-    filterStatus = status;
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
-    renderTable();
+function addToFeed(val, key) {
+  feedList.unshift({ ...val, key, status: val.status || getStatus(val.waktu) });
+  if (feedList.length > 20) feedList.pop();
+  renderFeed();
 }
 
-function openModal() { document.getElementById('modalOverlay').style.display = 'flex'; }
+function renderFeed() {
+  const feedEl = document.getElementById('liveFeed');
+  if (!feedEl) return;
+  document.getElementById('feedCount').textContent = feedList.length + ' scan';
+  
+  feedEl.innerHTML = feedList.map(f => `
+    <div style="padding:12px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:10px">
+      <div style="width:8px; height:8px; border-radius:50%; background:${getStatusColor(f.status)}"></div>
+      <div style="flex:1">
+        <div style="font-size:13px; font-weight:600">${f.nama}</div>
+        <div style="font-size:11px; color:#94a3b8">${f.waktu.split(' ')[1]} • ${f.kelas}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// =====================================================
+// ACTIONS
+// =====================================================
+function getStatusColor(s) {
+  const colors = { hadir: '#10b981', terlambat: '#f59e0b', izin: '#3b82f6', alpha: '#ef4444' };
+  return colors[s] || '#64748b';
+}
+
+function applyFilter() { searchQ = document.getElementById('searchBox').value; renderAll(); }
+function applyDateFilter() { filterDate = document.getElementById('filterDate').value; renderAll(); }
+
+function setStatus(s, el) {
+  filterStatus = s;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+function ubahStatus(key, status) {
+  db.ref('/absensi/' + key + '/status').set(status)
+    .then(() => notif('Status diperbarui', 'ok'));
+}
+
+function submitManual() {
+  const nama = document.getElementById('mNama').value.trim();
+  const kelas = document.getElementById('mKelas').value.trim();
+  const status = document.getElementById('mStatus').value;
+  if (!nama) return alert('Nama harus diisi');
+
+  db.ref('/absensi').push({
+    id: 'MANUAL', nama, kelas, waktu: nowStr(), status, akurasi: null
+  }).then(() => {
+    closeModal();
+    document.getElementById('mNama').value = '';
+    document.getElementById('mKelas').value = '';
+  });
+}
+
+// Clock & Init
+setInterval(() => {
+  const clk = document.getElementById('clockText');
+  if (clk) clk.textContent = new Date().toLocaleTimeString('id-ID');
+}, 1000);
+
 function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; }
+function openModal() { document.getElementById('modalOverlay').style.display = 'flex'; }
 function closeModalOutside(e) { if(e.target.id === 'modalOverlay') closeModal(); }
