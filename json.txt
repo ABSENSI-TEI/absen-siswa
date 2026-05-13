@@ -1,0 +1,25 @@
+{
+  "appName": "Absensi Sidik Jari TEI",
+  "version": "1.0",
+  "developer": "TEI",
+  "firebase": {
+    "apiKey": "AIzaSyAUswvBeyWLt7jYQ11MGfS-KcopD2FqkHg",
+    "authDomain": "absensi-4384e.firebaseapp.com",
+    "databaseURL": "https://absensi-4384e-default-rtdb.firebaseio.com",
+    "projectId": "absensi-4384e",
+    "storageBucket": "absensi-4384e.firebasestorage.app",
+    "messagingSenderId": "431493892970",
+    "appId": "1:431493892970:web:84f2d96c8ec11308037313",
+    "measurementId": "G-TCGT1EJC26"
+  },
+  "fitur": [
+    "Realtime Firebase",
+    "Scan Fingerprint",
+    "Status Hadir",
+    "Status Terlambat",
+    "Export CSV",
+    "Filter Tanggal",
+    "Live Feed",
+    "Manual Absensi"
+  ]
+}
