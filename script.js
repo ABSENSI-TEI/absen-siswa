@@ -1,6 +1,3 @@
-// =====================================================
-// FIREBASE CONFIG (Tetap sesuai milikmu)
-// =====================================================
 const firebaseConfig = {
   apiKey: "AIzaSyAUswvBeyWLt7jYQ11MGfS-KcopD2FqkHg",
   authDomain: "absensi-4384e.firebaseapp.com",
@@ -15,9 +12,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// =====================================================
-// STATE & CONFIG
-// =====================================================
 let allData = [];
 let feedList = [];
 let filterStatus = 'semua';
@@ -25,9 +19,6 @@ let filterDate = new Date().toISOString().slice(0, 10);
 let searchQ = '';
 let lastKeys = new Set();
 
-// =====================================================
-// HELPERS (Penting untuk parsing data dari alat)
-// =====================================================
 const pad = (n) => String(n).padStart(2, '0');
 
 function nowStr() {
@@ -59,9 +50,6 @@ function initials(nama) {
   return nama ? nama.trim().split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : '?';
 }
 
-// =====================================================
-// REALTIME LISTENERS
-// =====================================================
 const ref = db.ref('/absensi');
 
 ref.on('value', snap => {
@@ -69,7 +57,6 @@ ref.on('value', snap => {
   allData = [];
 
   Object.entries(raw).forEach(([key, val]) => {
-    // Deteksi record baru untuk Feed
     if (!lastKeys.has(key)) {
       lastKeys.add(key);
       if (allData.length > 0 || feedList.length > 0) addToFeed(val, key);
@@ -86,10 +73,8 @@ ref.on('value', snap => {
     });
   });
 
-  // Urutkan waktu terbaru di atas
   allData.sort((a, b) => (parseWaktu(b.waktu) || 0) - (parseWaktu(a.waktu) || 0));
 
-  // Inisialisasi feed jika kosong
   if (feedList.length === 0 && allData.length > 0) {
     feedList = allData.filter(d => getDateStr(d.waktu) === filterDate).slice(0, 15);
     renderFeed();
@@ -98,7 +83,6 @@ ref.on('value', snap => {
   renderAll();
 });
 
-// Koneksi Status
 db.ref('.info/connected').on('value', snap => {
   const on = snap.val();
   const dot = document.getElementById('fbDot');
@@ -107,9 +91,6 @@ db.ref('.info/connected').on('value', snap => {
   if (txt) txt.textContent = on ? 'Terhubung' : 'Offline';
 });
 
-// =====================================================
-// UI RENDERING
-// =====================================================
 function renderAll() {
   renderTable();
   updateStats();
@@ -171,6 +152,8 @@ function updateStats() {
   document.getElementById('sHadir').textContent = hadir + telat;
   document.getElementById('sTelat').textContent = telat;
   document.getElementById('sAlpha').textContent = alpha;
+  const pct = today.length ? Math.round((hadir+telat)/today.length*100) + '%' : '—';
+  document.getElementById('sHadirPct').textContent = pct;
 }
 
 function addToFeed(val, key) {
@@ -182,22 +165,19 @@ function addToFeed(val, key) {
 function renderFeed() {
   const feedEl = document.getElementById('liveFeed');
   if (!feedEl) return;
-  document.getElementById('feedCount').textContent = feedList.length + ' scan';
+  document.getElementById('feedCount').textContent = feedList.length;
   
   feedEl.innerHTML = feedList.map(f => `
     <div style="padding:12px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:10px">
       <div style="width:8px; height:8px; border-radius:50%; background:${getStatusColor(f.status)}"></div>
       <div style="flex:1">
         <div style="font-size:13px; font-weight:600">${f.nama}</div>
-        <div style="font-size:11px; color:#94a3b8">${f.waktu.split(' ')[1]} • ${f.kelas}</div>
+        <div style="font-size:11px; color:#94a3b8">${f.waktu.split(' ')[1] || ''} • ${f.kelas}</div>
       </div>
     </div>
   `).join('');
 }
 
-// =====================================================
-// ACTIONS
-// =====================================================
 function getStatusColor(s) {
   const colors = { hadir: '#10b981', terlambat: '#f59e0b', izin: '#3b82f6', alpha: '#ef4444' };
   return colors[s] || '#64748b';
@@ -214,8 +194,7 @@ function setStatus(s, el) {
 }
 
 function ubahStatus(key, status) {
-  db.ref('/absensi/' + key + '/status').set(status)
-    .then(() => notif('Status diperbarui', 'ok'));
+  db.ref('/absensi/' + key + '/status').set(status);
 }
 
 function submitManual() {
@@ -233,7 +212,35 @@ function submitManual() {
   });
 }
 
-// Clock & Init
+function exportCSV() {
+  const todayData = allData.filter(d => getDateStr(d.waktu) === filterDate);
+  if (todayData.length === 0) return alert('Tidak ada data untuk diekspor pada tanggal ini.');
+
+  let csvContent = "data:text/csv;charset=utf-8,";
+  csvContent += "No,Nama,Kelas,ID Sensor,Waktu,Akurasi,Status\n";
+
+  todayData.forEach((d, i) => {
+    let row = [
+      i + 1,
+      d.nama,
+      d.kelas,
+      d.id,
+      d.waktu,
+      d.akurasi ? d.akurasi + "%" : "—",
+      d.status
+    ].map(x => `"${x}"`).join(",");
+    csvContent += row + "\n";
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `absensi_tei_${filterDate}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 setInterval(() => {
   const clk = document.getElementById('clockText');
   if (clk) clk.textContent = new Date().toLocaleTimeString('id-ID');
@@ -242,3 +249,7 @@ setInterval(() => {
 function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; }
 function openModal() { document.getElementById('modalOverlay').style.display = 'flex'; }
 function closeModalOutside(e) { if(e.target.id === 'modalOverlay') closeModal(); }
+
+window.onload = () => {
+    document.getElementById('filterDate').value = filterDate;
+};
