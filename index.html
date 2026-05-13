@@ -53,7 +53,7 @@
       <div class="card">
         <div class="card-head">
           <span>Data Kehadiran</span>
-          <div style="display:flex;gap:8px;align-items:center">
+          <div class="head-actions">
             <span class="date-label">Tanggal:</span>
             <input type="date" id="filterDate" onchange="applyDateFilter()">
             <button class="btn btn-primary" onclick="openModal()">+ Manual</button>
@@ -63,11 +63,13 @@
 
         <div class="toolbar">
           <input class="search" type="text" placeholder="Cari nama atau kelas..." oninput="applyFilter()" id="searchBox">
-          <div class="chip active" onclick="setStatus('semua',this)">Semua</div>
-          <div class="chip" onclick="setStatus('hadir',this)">Hadir</div>
-          <div class="chip" onclick="setStatus('terlambat',this)">Terlambat</div>
-          <div class="chip" onclick="setStatus('izin',this)">Izin</div>
-          <div class="chip" onclick="setStatus('alpha',this)">Alpha</div>
+          <div class="chip-container">
+            <div class="chip active" onclick="setStatus('semua',this)">Semua</div>
+            <div class="chip" onclick="setStatus('hadir',this)">Hadir</div>
+            <div class="chip" onclick="setStatus('terlambat',this)">Terlambat</div>
+            <div class="chip" onclick="setStatus('izin',this)">Izin</div>
+            <div class="chip" onclick="setStatus('alpha',this)">Alpha</div>
+          </div>
         </div>
 
         <div class="tbl-wrap">
