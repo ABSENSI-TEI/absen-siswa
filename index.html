@@ -3,24 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi Siswa</title>
+    <title>Absensi Siswa TEI</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
 <div class="header">
   <div class="header-left">
     <img src="LOGO SEKOLAH.png" alt="Logo" class="logo-img">
-    <span>ABSENSI SISWA TEI</span>
+    <div class="brand">
+        <span class="title">ABSENSI SISWA</span>
+        <span class="sub-title">Teknik Elektronika Industri</span>
+    </div>
   </div>
   <div class="header-right">
+    <span id="clockText">00:00:00</span>
     <div class="fb-status">
       <div class="fb-dot" id="fbDot"></div>
-      <span id="fbStatus">Menghubungkan...</span>
+      <span id="fbStatus">Connecting...</span>
     </div>
-    <span id="clockText">--:--:--</span>
   </div>
 </div>
 
@@ -29,7 +33,7 @@
     <div class="stat blue">
       <div class="stat-label">Total</div>
       <div class="stat-val" id="sTotal">0</div>
-      <div class="stat-sub">tercatat hari ini</div>
+      <div class="stat-sub">Record</div>
     </div>
     <div class="stat green">
       <div class="stat-label">Hadir</div>
@@ -37,36 +41,37 @@
       <div class="stat-sub" id="sHadirPct">—</div>
     </div>
     <div class="stat yellow">
-      <div class="stat-label">Terlambat</div>
+      <div class="stat-label">Telat</div>
       <div class="stat-val" id="sTelat">0</div>
-      <div class="stat-sub">setelah 07:15</div>
+      <div class="stat-sub">Siswa</div>
     </div>
     <div class="stat red">
       <div class="stat-label">Alpha</div>
       <div class="stat-val" id="sAlpha">0</div>
-      <div class="stat-sub">tidak hadir</div>
+      <div class="stat-sub">Siswa</div>
     </div>
   </div>
 
   <div class="grid">
-    <div>
+    <div class="main-card-wrap">
       <div class="card">
         <div class="card-head">
-          <span>Data Kehadiran</span>
+          <div class="card-title">Data Kehadiran</div>
           <div class="head-actions">
-            <span class="date-label">Tanggal:</span>
             <input type="date" id="filterDate" onchange="applyDateFilter()">
             <button class="btn btn-primary" onclick="openModal()">+ Manual</button>
-            <button class="btn" onclick="exportCSV()">⬇ CSV</button>
+            <button class="btn btn-outline" onclick="exportCSV()">⬇ Excel/CSV</button>
           </div>
         </div>
 
         <div class="toolbar">
-          <input class="search" type="text" placeholder="Cari nama atau kelas..." oninput="applyFilter()" id="searchBox">
+          <div class="search-wrapper">
+             <input class="search" type="text" placeholder="Cari nama..." oninput="applyFilter()" id="searchBox">
+          </div>
           <div class="chip-container">
             <div class="chip active" onclick="setStatus('semua',this)">Semua</div>
             <div class="chip" onclick="setStatus('hadir',this)">Hadir</div>
-            <div class="chip" onclick="setStatus('terlambat',this)">Terlambat</div>
+            <div class="chip" onclick="setStatus('terlambat',this)">Telat</div>
             <div class="chip" onclick="setStatus('izin',this)">Izin</div>
             <div class="chip" onclick="setStatus('alpha',this)">Alpha</div>
           </div>
@@ -78,35 +83,29 @@
               <tr>
                 <th>#</th>
                 <th>Siswa</th>
-                <th>ID Sensor</th>
+                <th>ID</th>
                 <th>Waktu</th>
-                <th>Akurasi</th>
+                <th>Acc</th>
                 <th>Status</th>
-                <th>Ubah</th>
+                <th>Aksi</th>
               </tr>
             </thead>
             <tbody id="tableBody">
-              <tr><td colspan="7"><div class="empty">
-                <div class="empty-icon">🔥</div>
-                Menghubungkan ke Firebase...
-              </div></td></tr>
+              <tr><td colspan="7" class="empty">Memuat data...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <div>
+    <div class="side-card-wrap">
       <div class="card">
         <div class="card-head">
-          <span>Scan Terbaru</span>
-          <span class="sub" id="feedCount">0 scan</span>
+          <div class="card-title">Scan Terbaru</div>
+          <span class="badge-count" id="feedCount">0</span>
         </div>
         <div class="feed" id="liveFeed">
-          <div class="empty" style="padding:30px">
-            <div class="empty-icon">👆</div>
-            Menunggu scan jari...
-          </div>
+          <div class="empty">Menunggu scan...</div>
         </div>
       </div>
     </div>
@@ -115,15 +114,14 @@
 
 <div class="modal-overlay" id="modalOverlay" style="display:none" onclick="closeModalOutside(event)">
   <div class="modal">
-    <h3>Tambah Absensi Manual</h3>
-    <p class="sub">Untuk siswa yang tidak bisa scan sidik jari</p>
+    <h3>Input Manual</h3>
     <div class="form-row">
-      <label>Nama Lengkap</label>
-      <input type="text" id="mNama" placeholder="Contoh: Asep ganteng">
+      <label>Nama</label>
+      <input type="text" id="mNama">
     </div>
     <div class="form-row">
       <label>Kelas</label>
-      <input type="text" id="mKelas" placeholder="Contoh: XI TEI">
+      <input type="text" id="mKelas">
     </div>
     <div class="form-row">
       <label>Status</label>
@@ -135,7 +133,7 @@
       </select>
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal()">Batal</button>
+      <button class="btn btn-outline" onclick="closeModal()">Batal</button>
       <button class="btn btn-primary" onclick="submitManual()">Simpan</button>
     </div>
   </div>
