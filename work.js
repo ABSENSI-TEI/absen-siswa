@@ -1,49 +1,47 @@
-const CACHE_NAME = "absensi-tei-v2"; // Naikkan versi jika ada perubahan
+const CACHE_NAME = "ABSEN TEI";
 
+// Daftar file yang akan disimpan secara offline
 const urlsToCache = [
   "./",
   "./index.html",
   "./style.css",
   "./script.js",
-  "./logo.png" // Pastikan namanya persis sama dengan file di folder kamu
+  "./LOGO SEKOLAH.png",
+  "./manifest.json" // Pastikan manifestjson.txt sudah di-rename menjadi manifest.json
 ];
 
-// INSTALL: Simpan aset ke dalam cache
+// Tahap Install: Simpan aset ke Cache
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log("Service Worker: Caching assets...");
-        return cache.addAll(urlsToCache);
-      })
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => {
+      console.log("Service Worker: Membuka Cache");
+      return cache.addAll(urlsToCache);
+    })
   );
 });
 
-// ACTIVATE: Hapus cache lama
+// Tahap Fetch: Ambil data dari Cache jika offline
+self.addEventListener("fetch", event => {
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      // Jika ada di cache, pakai cache. Jika tidak, ambil dari jaringan.
+      return response || fetch(event.request);
+    })
+  );
+});
+
+// Tahap Activate: Bersihkan cache versi lama
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
         keys.map(key => {
           if (key !== CACHE_NAME) {
-            console.log("Service Worker: Clearing old cache...");
+            console.log("Service Worker: Menghapus cache lama");
             return caches.delete(key);
           }
         })
       );
     })
-  );
-});
-
-// FETCH: Ambil dari cache jika offline
-self.addEventListener("fetch", event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        return response || fetch(event.request).catch(() => {
-          // Opsional: berikan halaman fallback jika benar-benar offline dan aset tidak di-cache
-        });
-      })
   );
 });
