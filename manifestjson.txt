@@ -1,0 +1,32 @@
+{
+  "short_name": "AbsensiTEI",
+  "name": "Absensi Sidik Jari TEI",
+  "description": "Aplikasi Absensi Realtime Siswa Teknik Elektronika Industri",
+  "icons": [
+    {
+      "src": "LOGO SEKOLAH.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "scope": "./",
+  "theme_color": "#0f172a",
+  "developer_info": {
+    "name": "TEI",
+    "version": "1.0"
+  },
+  "firebase_config": {
+    "apiKey": "AIzaSyAUswvBeyWLt7jYQ11MGfS-KcopD2FqkHg",
+    "authDomain": "absensi-4384e.firebaseapp.com",
+    "databaseURL": "https://absensi-4384e-default-rtdb.firebaseio.com",
+    "projectId": "absensi-4384e",
+    "storageBucket": "absensi-4384e.firebasestorage.app",
+    "messagingSenderId": "431493892970",
+    "appId": "1:431493892970:web:84f2d96c8ec11308037313",
+    "measurementId": "G-TCGT1EJC26"
+  }
+}
